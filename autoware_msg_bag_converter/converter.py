@@ -53,16 +53,16 @@ TYPES_TO_ADD_AUTOWARE_PREFIX = [
 
 
 def change_topic_type(old_type: TopicMetadata) -> TopicMetadata:
-    if old_type.name in TYPES_NOT_SIMPLY_REPLACED:
+    if old_type.type in TYPES_NOT_SIMPLY_REPLACED:
         return TopicMetadata(
             name=old_type.name,
-            type=TYPES_NOT_SIMPLY_REPLACED[old_type.name],
+            type=TYPES_NOT_SIMPLY_REPLACED[old_type.type],
             serialization_format="cdr",
         )
-    if any(old_type.name.startswith(prefix) for prefix in TYPES_TO_ADD_AUTOWARE_PREFIX):
+    if any(old_type.type.startswith(prefix) for prefix in TYPES_TO_ADD_AUTOWARE_PREFIX):
         return TopicMetadata(
             name=old_type.name,
-            type=f"autoware_{old_type.name}",
+            type=f"autoware_{old_type.type}",
             serialization_format="cdr",
         )
     # If old_type is not in the conversion rules, simply remove "auto_" and use that as the new type.

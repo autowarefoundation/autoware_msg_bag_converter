@@ -20,11 +20,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from autoware_control_msgs.msg import Control
+from autoware_control_msgs.msg import Lateral
+from autoware_control_msgs.msg import Longitudinal
+from autoware_planning_msgs.msg import PathPoint
 from rclpy.serialization import deserialize_message
 from rclpy.serialization import serialize_message
 from rosbag2_py import Reindexer
 from rosbag2_py import TopicMetadata
 from rosidl_runtime_py.utilities import get_message
+from tier4_planning_msgs.msg import PathPointWithLaneId
 from tier4_planning_msgs.msg import PathWithLaneId as T4PathWithLaneId
 
 from autoware_msg_bag_converter.bag import create_reader
@@ -40,10 +44,11 @@ TYPES_NOT_SIMPLY_REPLACED = {
     "autoware_auto_planning_msgs/msg/PathWithLaneId": "tier4_planning_msgs/msg/PathWithLaneId",
 }
 
+# Define the type of message you want autoware prefixes to be attached to (forward matching)
 TYPES_TO_ADD_AUTOWARE_PREFIX = [
-    "control_validator/msg/ControlValidatorStatus",
-    "planning_validator/msg/PlanningValidatorStatus",
-    "vehicle_cmd_gate/msg/IsFilterActivated",
+    "control_validator/msg",
+    "planning_validator/msg",
+    "vehicle_cmd_gate/msg",
 ]
 
 
@@ -54,7 +59,7 @@ def change_topic_type(old_type: TopicMetadata) -> TopicMetadata:
             type=TYPES_NOT_SIMPLY_REPLACED[old_type.name],
             serialization_format="cdr",
         )
-    if old_type.name in TYPES_TO_ADD_AUTOWARE_PREFIX:
+    if any(old_type.name.startswith(prefix) for prefix in TYPES_TO_ADD_AUTOWARE_PREFIX):
         return TopicMetadata(
             name=old_type.name,
             type=f"autoware_{old_type.name}",
@@ -70,7 +75,7 @@ def change_topic_type(old_type: TopicMetadata) -> TopicMetadata:
 
 def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
     # get old msg type
-    old_type = type_map[topic_name]
+    old_type: str = type_map[topic_name]
     if old_type not in TYPES_NOT_SIMPLY_REPLACED:
         return msg
     old_msg = deserialize_message(
@@ -79,19 +84,43 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
     )
     if old_type == "autoware_auto_control_msgs/msg/AckermannControlCommand":
         old_msg: AckermannControlCommand
+        lateral = Lateral(
+            stamp=old_msg.lateral.stamp,
+            steering_tire_angle=old_msg.lateral.steering_tire_angle,
+            steering_tire_rotation_rate=old_msg.lateral.steering_tire_rotation_rate,
+            is_defined_steering_tire_rotation_rate=True,
+        )
+        longitudinal = Longitudinal(
+            stamp=old_msg.longitudinal.stamp,
+            velocity=old_msg.longitudinal.speed,
+            acceleration=old_msg.longitudinal.acceleration,
+            jerk=old_msg.longitudinal.jerk,
+            is_defined_acceleration=True,
+            is_defined_jerk=False,
+        )
         return serialize_message(
             Control(
                 stamp=old_msg.stamp,
-                lateral=old_msg.lateral,
-                longitudinal=old_msg.longitudinal,
+                lateral=lateral,
+                longitudinal=longitudinal,
             ),
         )
     if old_type == "autoware_auto_planning_msgs/msg/PathWithLaneId":
         old_msg: AutoPathWithLaneId
+        points: list[PathPointWithLaneId] = []
+        for old_point in old_msg.points:
+            point = PathPoint(
+                pose=old_point.point.pose,
+                longitudinal_velocity_mps=old_point.point.longitudinal_velocity_mps,
+                lateral_velocity_mps=old_point.point.lateral_velocity_mps,
+                heading_rate_rps=old_point.point.heading_rate_rps,
+                is_final=old_point.point.is_final,
+            )
+            points.append(PathPointWithLaneId(point=point, lane_ids=old_point.lane_ids))
         return serialize_message(
             T4PathWithLaneId(
                 header=old_msg.header,
-                points=old_msg.points,
+                points=points,
                 left_bound=old_msg.left_bound,
                 right_bound=old_msg.right_bound,
             ),

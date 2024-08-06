@@ -18,6 +18,8 @@ git clone https://github.com/autowarefoundation/autoware_msg_bag_converter.git
 cd autoware_msg_bag_converter
 vcs import .. < dependency.repos
 cd $HOME/ros_ws/converter
+rosdep update
+rosdep install -y --from-paths . --ignore-src --rosdistro $ROS_DISTRO
 colcon build --symlink-install --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Release
 ```
 

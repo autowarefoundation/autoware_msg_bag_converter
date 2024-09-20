@@ -19,12 +19,16 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from autoware_auto_control_msgs.msg import AckermannControlCommand
+from autoware_auto_perception_msgs.msg import TrafficSignalArray as AutoTrafficSignalArray
+from autoware_auto_planning_msgs.msg import PathWithLaneId as AutoPathWithLaneId
 from autoware_control_msgs.msg import Control
 from autoware_control_msgs.msg import Lateral
 from autoware_control_msgs.msg import Longitudinal
 from autoware_perception_msgs.msg import TrafficLightElement
 from autoware_perception_msgs.msg import TrafficLightGroup
 from autoware_perception_msgs.msg import TrafficLightGroupArray
+from autoware_perception_msgs.msg import TrafficSignalArray
 from autoware_planning_msgs.msg import PathPoint
 from rclpy.serialization import deserialize_message
 from rclpy.serialization import serialize_message
@@ -39,13 +43,9 @@ from autoware_msg_bag_converter.bag import create_writer
 from autoware_msg_bag_converter.bag import get_storage_options
 
 if TYPE_CHECKING:
-    from autoware_auto_control_msgs.msg import AckermannControlCommand
     from autoware_auto_perception_msgs.msg import TrafficLight as AutoTrafficLight
     from autoware_auto_perception_msgs.msg import TrafficSignal as AutoTrafficSignal
-    from autoware_auto_perception_msgs.msg import TrafficSignalArray as AutoTrafficSignalArray
-    from autoware_auto_planning_msgs.msg import PathWithLaneId as AutoPathWithLaneId
     from autoware_perception_msgs.msg import TrafficSignal
-    from autoware_perception_msgs.msg import TrafficSignalArray
     from autoware_perception_msgs.msg import TrafficSignalElement
 
 TYPES_NOT_SIMPLY_REPLACED = {

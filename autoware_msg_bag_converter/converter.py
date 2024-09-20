@@ -127,7 +127,7 @@ def convert_path_with_lane_id(old_msg: AutoPathWithLaneId) -> bytes:
     )
 
 def convert_auto_traffic_signal_array(old_msg: AutoTrafficSignalArray) -> bytes:
-    new_msg = TrafficLightGroupArray(stamp=old_msg.stamp)
+    new_msg = TrafficLightGroupArray(stamp=old_msg.header.stamp)
     for old_signal in old_msg.signals:
         old_signal: AutoTrafficSignal
         traffic_light_group = TrafficLightGroup(traffic_light_group_id=old_signal.map_primitive_id)

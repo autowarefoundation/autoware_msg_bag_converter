@@ -22,6 +22,9 @@ from typing import TYPE_CHECKING
 from autoware_control_msgs.msg import Control
 from autoware_control_msgs.msg import Lateral
 from autoware_control_msgs.msg import Longitudinal
+from autoware_perception_msgs.msg import TrafficLightElement
+from autoware_perception_msgs.msg import TrafficLightGroup
+from autoware_perception_msgs.msg import TrafficLightGroupArray
 from autoware_planning_msgs.msg import PathPoint
 from rclpy.serialization import deserialize_message
 from rclpy.serialization import serialize_message
@@ -37,11 +40,19 @@ from autoware_msg_bag_converter.bag import get_storage_options
 
 if TYPE_CHECKING:
     from autoware_auto_control_msgs.msg import AckermannControlCommand
+    from autoware_auto_perception_msgs.msg import TrafficLight as AutoTrafficLight
+    from autoware_auto_perception_msgs.msg import TrafficSignal as AutoTrafficSignal
+    from autoware_auto_perception_msgs.msg import TrafficSignalArray as AutoTrafficSignalArray
     from autoware_auto_planning_msgs.msg import PathWithLaneId as AutoPathWithLaneId
+    from autoware_perception_msgs.msg import TrafficSignal
+    from autoware_perception_msgs.msg import TrafficSignalArray
+    from autoware_perception_msgs.msg import TrafficSignalElement
 
 TYPES_NOT_SIMPLY_REPLACED = {
     "autoware_auto_control_msgs/msg/AckermannControlCommand": "autoware_control_msgs/msg/Control",
     "autoware_auto_planning_msgs/msg/PathWithLaneId": "tier4_planning_msgs/msg/PathWithLaneId",
+    "autoware_auto_perception_msgs/msg/TrafficSignalArray": "autoware_perception_msgs/msg/TrafficLightGroupArray",
+    "autoware_perception_msgs/msg/TrafficSignalArray": "autoware_perception_msgs/msg/TrafficLightGroupArray",
 }
 
 # Define the type of message you want autoware prefixes to be attached to (forward matching)
@@ -72,6 +83,83 @@ def change_topic_type(old_type: TopicMetadata) -> TopicMetadata:
         serialization_format="cdr",
     )
 
+def convert_ackermann_control_command(old_msg: AckermannControlCommand) -> bytes:
+    lateral = Lateral(
+            stamp=old_msg.lateral.stamp,
+            steering_tire_angle=old_msg.lateral.steering_tire_angle,
+            steering_tire_rotation_rate=old_msg.lateral.steering_tire_rotation_rate,
+            is_defined_steering_tire_rotation_rate=True,
+        )
+    longitudinal = Longitudinal(
+        stamp=old_msg.longitudinal.stamp,
+        velocity=old_msg.longitudinal.speed,
+        acceleration=old_msg.longitudinal.acceleration,
+        jerk=old_msg.longitudinal.jerk,
+        is_defined_acceleration=True,
+        is_defined_jerk=False,
+    )
+    return serialize_message(
+        Control(
+            stamp=old_msg.stamp,
+            lateral=lateral,
+            longitudinal=longitudinal,
+        ),
+    )
+
+def convert_path_with_lane_id(old_msg: AutoPathWithLaneId) -> bytes:
+    points: list[PathPointWithLaneId] = []
+    for old_point in old_msg.points:
+        point = PathPoint(
+            pose=old_point.point.pose,
+            longitudinal_velocity_mps=old_point.point.longitudinal_velocity_mps,
+            lateral_velocity_mps=old_point.point.lateral_velocity_mps,
+            heading_rate_rps=old_point.point.heading_rate_rps,
+            is_final=old_point.point.is_final,
+        )
+        points.append(PathPointWithLaneId(point=point, lane_ids=old_point.lane_ids))
+    return serialize_message(
+        T4PathWithLaneId(
+            header=old_msg.header,
+            points=points,
+            left_bound=old_msg.left_bound,
+            right_bound=old_msg.right_bound,
+        ),
+    )
+
+def convert_auto_traffic_signal_array(old_msg: AutoTrafficSignalArray) -> bytes:
+    new_msg = TrafficLightGroupArray(stamp=old_msg.stamp)
+    for old_signal in old_msg.signals:
+        old_signal: AutoTrafficSignal
+        traffic_light_group = TrafficLightGroup(traffic_light_group_id=old_signal.map_primitive_id)
+        for old_light in old_signal.lights:
+            old_light: AutoTrafficLight
+            traffic_light_element = TrafficLightElement(
+                color=old_light.color,
+                shape=old_light.shape,
+                status=old_light.status,
+                confidence=old_light.confidence,
+            )
+            traffic_light_group.elements.append(traffic_light_element)
+        new_msg.traffic_light_groups.append(traffic_light_group)
+    return serialize_message(new_msg)
+
+def convert_traffic_signal_array(old_msg: TrafficSignalArray) -> bytes:
+    new_msg = TrafficLightGroupArray(stamp=old_msg.stamp)
+    for old_signal in old_msg.signals:
+        old_signal: TrafficSignal
+        traffic_light_group = TrafficLightGroup(traffic_light_group_id=old_signal.traffic_signal_id)
+        for old_element in old_signal.elements:
+            old_element: TrafficSignalElement
+            traffic_light_element = TrafficLightElement(
+                color=old_element.color,
+                shape=old_element.shape,
+                status=old_element.status,
+                confidence=old_element.confidence,
+            )
+            traffic_light_group.elements.append(traffic_light_element)
+        new_msg.traffic_light_groups.append(traffic_light_group)
+    return serialize_message(new_msg)
+
 
 def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
     # get old msg type
@@ -83,48 +171,13 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
         get_message(type_map[topic_name]),
     )
     if old_type == "autoware_auto_control_msgs/msg/AckermannControlCommand":
-        old_msg: AckermannControlCommand
-        lateral = Lateral(
-            stamp=old_msg.lateral.stamp,
-            steering_tire_angle=old_msg.lateral.steering_tire_angle,
-            steering_tire_rotation_rate=old_msg.lateral.steering_tire_rotation_rate,
-            is_defined_steering_tire_rotation_rate=True,
-        )
-        longitudinal = Longitudinal(
-            stamp=old_msg.longitudinal.stamp,
-            velocity=old_msg.longitudinal.speed,
-            acceleration=old_msg.longitudinal.acceleration,
-            jerk=old_msg.longitudinal.jerk,
-            is_defined_acceleration=True,
-            is_defined_jerk=False,
-        )
-        return serialize_message(
-            Control(
-                stamp=old_msg.stamp,
-                lateral=lateral,
-                longitudinal=longitudinal,
-            ),
-        )
+        return convert_ackermann_control_command(old_msg)
     if old_type == "autoware_auto_planning_msgs/msg/PathWithLaneId":
-        old_msg: AutoPathWithLaneId
-        points: list[PathPointWithLaneId] = []
-        for old_point in old_msg.points:
-            point = PathPoint(
-                pose=old_point.point.pose,
-                longitudinal_velocity_mps=old_point.point.longitudinal_velocity_mps,
-                lateral_velocity_mps=old_point.point.lateral_velocity_mps,
-                heading_rate_rps=old_point.point.heading_rate_rps,
-                is_final=old_point.point.is_final,
-            )
-            points.append(PathPointWithLaneId(point=point, lane_ids=old_point.lane_ids))
-        return serialize_message(
-            T4PathWithLaneId(
-                header=old_msg.header,
-                points=points,
-                left_bound=old_msg.left_bound,
-                right_bound=old_msg.right_bound,
-            ),
-        )
+        return convert_path_with_lane_id(old_msg)
+    if old_type == "autoware_auto_perception_msgs/msg/TrafficSignalArray":
+        return convert_auto_traffic_signal_array(old_msg)
+    if old_type == "autoware_perception_msgs/msg/TrafficSignalArray":
+        return convert_traffic_signal_array(old_msg)
     return None
 
 

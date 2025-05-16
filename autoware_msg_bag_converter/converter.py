@@ -166,10 +166,15 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
     old_type: str = type_map[topic_name]
     if old_type not in TYPES_NOT_SIMPLY_REPLACED:
         return msg
-    old_msg = deserialize_message(
-        msg,
-        get_message(type_map[topic_name]),
-    )
+    try:
+        old_msg = deserialize_message(
+            msg,
+            get_message(type_map[topic_name]),
+        )
+    except Exception as e:
+        print(f"Failed to deserialize message for topic {topic_name} [{type_map[topic_name]}] : {e}")
+        return msg
+
     if old_type == "autoware_auto_control_msgs/msg/AckermannControlCommand":
         return convert_ackermann_control_command(old_msg)
     if old_type == "autoware_auto_planning_msgs/msg/PathWithLaneId":

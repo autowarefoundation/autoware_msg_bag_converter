@@ -37,6 +37,7 @@ from rosbag2_py import TopicMetadata
 from rosidl_runtime_py.utilities import get_message
 from tier4_planning_msgs.msg import PathPointWithLaneId
 from tier4_planning_msgs.msg import PathWithLaneId as T4PathWithLaneId
+import yaml
 
 from autoware_msg_bag_converter.bag import create_reader
 from autoware_msg_bag_converter.bag import create_writer
@@ -166,10 +167,15 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
     old_type: str = type_map[topic_name]
     if old_type not in TYPES_NOT_SIMPLY_REPLACED:
         return msg
-    old_msg = deserialize_message(
-        msg,
-        get_message(type_map[topic_name]),
-    )
+    try:
+        old_msg = deserialize_message(
+            msg,
+            get_message(type_map[topic_name]),
+        )
+    except Exception as e:
+        print(f"Failed to deserialize message for topic {topic_name} [{type_map[topic_name]}] : {e}")
+        return msg
+
     if old_type == "autoware_auto_control_msgs/msg/AckermannControlCommand":
         return convert_ackermann_control_command(old_msg)
     if old_type == "autoware_auto_planning_msgs/msg/PathWithLaneId":
@@ -180,6 +186,26 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
         return convert_traffic_signal_array(old_msg)
     return None
 
+def convert_metadata(input_metadata_path: str, output_metadata_path: str) -> None:
+    with input_metadata_path.open() as f:
+        input_metadata = yaml.safe_load(f)
+
+    # key: topic_name, value: offered_qos_profiles
+    qos_profiles = {
+        topic["topic_metadata"]["name"]: topic["topic_metadata"]["offered_qos_profiles"]
+        for topic in input_metadata["rosbag2_bagfile_information"]["topics_with_message_count"]
+    }
+
+    with output_metadata_path.open() as f:
+        output_metadata = yaml.safe_load(f)
+
+    for topic in output_metadata["rosbag2_bagfile_information"]["topics_with_message_count"]:
+        topic_name = topic["topic_metadata"]["name"]
+        if topic_name in qos_profiles:
+            topic["topic_metadata"]["offered_qos_profiles"] = qos_profiles[topic_name]
+
+    with output_metadata_path.open("w") as f:
+        yaml.dump(output_metadata, f, default_flow_style=False)
 
 def convert_bag(input_bag_path: str, output_bag_path: str) -> None:
     p_input = Path(input_bag_path)
@@ -210,3 +236,9 @@ def convert_bag(input_bag_path: str, output_bag_path: str) -> None:
     # reindex to update metadata.yaml
     del writer
     Reindexer().reindex(get_storage_options(output_bag_path, storage_type))
+
+    # rewrite qos_profiles to metadata.yaml
+    input_metadata_path = Path(input_bag_path) / "metadata.yaml"
+    output_metadata_path = Path(output_bag_path) / "metadata.yaml"
+    if input_metadata_path.exists() and output_metadata_path.exists():
+        convert_metadata(input_metadata_path, output_metadata_path)

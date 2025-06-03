@@ -17,41 +17,39 @@
 # https://github.com/ros2/rosbag2/blob/rolling/rosbag2_py/test/test_reindexer.py
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
+from typing import TYPE_CHECKING
 
-import yaml
 from autoware_auto_control_msgs.msg import AckermannControlCommand
-from autoware_auto_perception_msgs.msg import (
-    TrafficSignalArray as AutoTrafficSignalArray,
-)
+from autoware_auto_perception_msgs.msg import TrafficSignalArray as AutoTrafficSignalArray
 from autoware_auto_planning_msgs.msg import PathWithLaneId as AutoPathWithLaneId
-from autoware_control_msgs.msg import Control, Lateral, Longitudinal
-from autoware_perception_msgs.msg import (
-    TrafficLightElement,
-    TrafficLightGroup,
-    TrafficLightGroupArray,
-    TrafficSignalArray,
-)
-from autoware_perception_msgs_v1_7.msg import (
-    TrafficLightGroupArray as TrafficLightGroupArrayV1_7,
-)
+from autoware_control_msgs.msg import Control
+from autoware_control_msgs.msg import Lateral
+from autoware_control_msgs.msg import Longitudinal
+from autoware_perception_msgs.msg import TrafficLightElement
+from autoware_perception_msgs.msg import TrafficLightGroup
+from autoware_perception_msgs.msg import TrafficLightGroupArray
+from autoware_perception_msgs.msg import TrafficSignalArray
+from autoware_perception_msgs_v1_7.msg import TrafficLightGroupArray as TrafficLightGroupArrayV1_7
 from autoware_planning_msgs.msg import PathPoint
-from rclpy.serialization import deserialize_message, serialize_message
-from rosbag2_py import Reindexer, TopicMetadata
+from rclpy.serialization import deserialize_message
+from rclpy.serialization import serialize_message
+from rosbag2_py import Reindexer
+from rosbag2_py import TopicMetadata
 from rosidl_runtime_py.utilities import get_message
 from tier4_planning_msgs.msg import PathPointWithLaneId
 from tier4_planning_msgs.msg import PathWithLaneId as T4PathWithLaneId
+import yaml
 
-from autoware_msg_bag_converter.bag import (
-    create_reader,
-    create_writer,
-    get_storage_options,
-)
+from autoware_msg_bag_converter.bag import create_reader
+from autoware_msg_bag_converter.bag import create_writer
+from autoware_msg_bag_converter.bag import get_storage_options
 
 if TYPE_CHECKING:
     from autoware_auto_perception_msgs.msg import TrafficLight as AutoTrafficLight
     from autoware_auto_perception_msgs.msg import TrafficSignal as AutoTrafficSignal
-    from autoware_perception_msgs.msg import TrafficSignal, TrafficSignalElement
+    from autoware_perception_msgs.msg import TrafficSignal
+    from autoware_perception_msgs.msg import TrafficSignalElement
 
 TYPES_NOT_SIMPLY_REPLACED = {
     "autoware_auto_control_msgs/msg/AckermannControlCommand": "autoware_control_msgs/msg/Control",
@@ -191,7 +189,7 @@ def convert_traffic_light_group_array_v1_7(old_msg: TrafficLightGroupArrayV1_7) 
             new_group.elements.append(new_element)
         new_msg.traffic_light_groups.append(new_group)
     return serialize_message(new_msg)
-    
+
 
 def deserialize_message_recursive(msg: bytes, type_name: str) -> tuple[Any, str]:
     try:
@@ -222,8 +220,9 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
         return convert_auto_traffic_signal_array(old_msg)
     if old_type == "autoware_perception_msgs/msg/TrafficSignalArray":
         return convert_traffic_signal_array(old_msg)
-
-    return msg
+    if old_type == "unknown_type":
+        return msg
+    return serialize_message(msg)
 
 
 def convert_metadata(input_metadata_path: str, output_metadata_path: str) -> None:
@@ -272,8 +271,6 @@ def convert_bag(input_bag_path: str, output_bag_path: str) -> None:
     while reader.has_next():
         topic_name, msg, stamp = reader.read_next()
         new_msg = convert_msg(topic_name, msg, type_map)
-        if new_msg is None:
-            import pdb; pdb.set_trace()  # noqa: E702
         writer.write(topic_name, new_msg, stamp)
 
     # reindex to update metadata.yaml

@@ -16,6 +16,3 @@ repositories:
     type: git
     url: https://github.com/tier4/tier4_autoware_msgs.git
     version: tier4/universe
-  autoware_perception_msgs_v1_7:
-    type: local
-    path: autoware_msg_bag_converter/old_msgs/autoware_perception_msgs_v1_7 

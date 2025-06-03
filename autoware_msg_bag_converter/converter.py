@@ -17,43 +17,50 @@
 # https://github.com/ros2/rosbag2/blob/rolling/rosbag2_py/test/test_reindexer.py
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+import yaml
 from autoware_auto_control_msgs.msg import AckermannControlCommand
-from autoware_auto_perception_msgs.msg import TrafficSignalArray as AutoTrafficSignalArray
+from autoware_auto_perception_msgs.msg import (
+    TrafficSignalArray as AutoTrafficSignalArray,
+)
 from autoware_auto_planning_msgs.msg import PathWithLaneId as AutoPathWithLaneId
-from autoware_control_msgs.msg import Control
-from autoware_control_msgs.msg import Lateral
-from autoware_control_msgs.msg import Longitudinal
-from autoware_perception_msgs.msg import TrafficLightElement
-from autoware_perception_msgs.msg import TrafficLightGroup
-from autoware_perception_msgs.msg import TrafficLightGroupArray
-from autoware_perception_msgs.msg import TrafficSignalArray
+from autoware_control_msgs.msg import Control, Lateral, Longitudinal
+from autoware_perception_msgs.msg import (
+    TrafficLightElement,
+    TrafficLightGroup,
+    TrafficLightGroupArray,
+    TrafficSignalArray,
+)
+from autoware_perception_msgs_v1_7.msg import (
+    TrafficLightGroupArray as TrafficLightGroupArrayV1_7,
+)
 from autoware_planning_msgs.msg import PathPoint
-from rclpy.serialization import deserialize_message
-from rclpy.serialization import serialize_message
-from rosbag2_py import Reindexer
-from rosbag2_py import TopicMetadata
+from rclpy.serialization import deserialize_message, serialize_message
+from rosbag2_py import Reindexer, TopicMetadata
 from rosidl_runtime_py.utilities import get_message
 from tier4_planning_msgs.msg import PathPointWithLaneId
 from tier4_planning_msgs.msg import PathWithLaneId as T4PathWithLaneId
-import yaml
 
-from autoware_msg_bag_converter.bag import create_reader
-from autoware_msg_bag_converter.bag import create_writer
-from autoware_msg_bag_converter.bag import get_storage_options
+from autoware_msg_bag_converter.bag import (
+    create_reader,
+    create_writer,
+    get_storage_options,
+)
 
 if TYPE_CHECKING:
     from autoware_auto_perception_msgs.msg import TrafficLight as AutoTrafficLight
     from autoware_auto_perception_msgs.msg import TrafficSignal as AutoTrafficSignal
-    from autoware_perception_msgs.msg import TrafficSignal
-    from autoware_perception_msgs.msg import TrafficSignalElement
+    from autoware_perception_msgs.msg import TrafficSignal, TrafficSignalElement
 
 TYPES_NOT_SIMPLY_REPLACED = {
     "autoware_auto_control_msgs/msg/AckermannControlCommand": "autoware_control_msgs/msg/Control",
     "autoware_auto_planning_msgs/msg/PathWithLaneId": "tier4_planning_msgs/msg/PathWithLaneId",
     "autoware_auto_perception_msgs/msg/TrafficSignalArray": "autoware_perception_msgs/msg/TrafficLightGroupArray",
     "autoware_perception_msgs/msg/TrafficSignalArray": "autoware_perception_msgs/msg/TrafficLightGroupArray",
+}
+TYPES_NEED_TO_UPDATE_VERSION = {
+    "autoware_perception_msgs/msg/TrafficLightGroupArray": "autoware_perception_msgs_v1_7/msg/TrafficLightGroupArray",
 }
 
 # Define the type of message you want autoware prefixes to be attached to (forward matching)
@@ -84,13 +91,14 @@ def change_topic_type(old_type: TopicMetadata) -> TopicMetadata:
         serialization_format="cdr",
     )
 
+
 def convert_ackermann_control_command(old_msg: AckermannControlCommand) -> bytes:
     lateral = Lateral(
-            stamp=old_msg.lateral.stamp,
-            steering_tire_angle=old_msg.lateral.steering_tire_angle,
-            steering_tire_rotation_rate=old_msg.lateral.steering_tire_rotation_rate,
-            is_defined_steering_tire_rotation_rate=True,
-        )
+        stamp=old_msg.lateral.stamp,
+        steering_tire_angle=old_msg.lateral.steering_tire_angle,
+        steering_tire_rotation_rate=old_msg.lateral.steering_tire_rotation_rate,
+        is_defined_steering_tire_rotation_rate=True,
+    )
     longitudinal = Longitudinal(
         stamp=old_msg.longitudinal.stamp,
         velocity=old_msg.longitudinal.speed,
@@ -107,6 +115,7 @@ def convert_ackermann_control_command(old_msg: AckermannControlCommand) -> bytes
         ),
     )
 
+
 def convert_path_with_lane_id(old_msg: AutoPathWithLaneId) -> bytes:
     points: list[PathPointWithLaneId] = []
     for old_point in old_msg.points:
@@ -117,7 +126,8 @@ def convert_path_with_lane_id(old_msg: AutoPathWithLaneId) -> bytes:
             heading_rate_rps=old_point.point.heading_rate_rps,
             is_final=old_point.point.is_final,
         )
-        points.append(PathPointWithLaneId(point=point, lane_ids=old_point.lane_ids))
+        points.append(PathPointWithLaneId(
+            point=point, lane_ids=old_point.lane_ids))
     return serialize_message(
         T4PathWithLaneId(
             header=old_msg.header,
@@ -127,11 +137,13 @@ def convert_path_with_lane_id(old_msg: AutoPathWithLaneId) -> bytes:
         ),
     )
 
+
 def convert_auto_traffic_signal_array(old_msg: AutoTrafficSignalArray) -> bytes:
     new_msg = TrafficLightGroupArray(stamp=old_msg.header.stamp)
     for old_signal in old_msg.signals:
         old_signal: AutoTrafficSignal
-        traffic_light_group = TrafficLightGroup(traffic_light_group_id=old_signal.map_primitive_id)
+        traffic_light_group = TrafficLightGroup(
+            traffic_light_group_id=old_signal.map_primitive_id)
         for old_light in old_signal.lights:
             old_light: AutoTrafficLight
             traffic_light_element = TrafficLightElement(
@@ -144,11 +156,13 @@ def convert_auto_traffic_signal_array(old_msg: AutoTrafficSignalArray) -> bytes:
         new_msg.traffic_light_groups.append(traffic_light_group)
     return serialize_message(new_msg)
 
+
 def convert_traffic_signal_array(old_msg: TrafficSignalArray) -> bytes:
     new_msg = TrafficLightGroupArray(stamp=old_msg.stamp)
     for old_signal in old_msg.signals:
         old_signal: TrafficSignal
-        traffic_light_group = TrafficLightGroup(traffic_light_group_id=old_signal.traffic_signal_id)
+        traffic_light_group = TrafficLightGroup(
+            traffic_light_group_id=old_signal.traffic_signal_id)
         for old_element in old_signal.elements:
             old_element: TrafficSignalElement
             traffic_light_element = TrafficLightElement(
@@ -161,21 +175,45 @@ def convert_traffic_signal_array(old_msg: TrafficSignalArray) -> bytes:
         new_msg.traffic_light_groups.append(traffic_light_group)
     return serialize_message(new_msg)
 
+def convert_traffic_light_group_array_v1_7(old_msg: TrafficLightGroupArrayV1_7) -> bytes:
+    new_msg = TrafficLightGroupArray(stamp=old_msg.stamp)
+    for old_group in old_msg.traffic_light_groups:
+        new_group = TrafficLightGroup(
+            traffic_light_group_id=old_group.traffic_light_group_id,
+        )
+        for old_element in old_group.elements:
+            new_element = TrafficLightElement(
+                color=old_element.color,
+                shape=old_element.shape,
+                status=old_element.status,
+                confidence=old_element.confidence,
+            )
+            new_group.elements.append(new_element)
+        new_msg.traffic_light_groups.append(new_group)
+    return serialize_message(new_msg)
+    
+
+def deserialize_message_recursive(msg: bytes, type_name: str) -> tuple[Any, str]:
+    try:
+        return deserialize_message(msg, get_message(type_name)), type_name
+    except Exception as e:
+        if type_name in TYPES_NEED_TO_UPDATE_VERSION:
+            original_type_name = TYPES_NEED_TO_UPDATE_VERSION[type_name]
+            return deserialize_message_recursive(msg, original_type_name)
+        print(f"Failed to deserialize message of type {type_name}: {e}")
+        return msg, 'unknown_type'
+
 
 def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
     # get old msg type
     old_type: str = type_map[topic_name]
-    if old_type not in TYPES_NOT_SIMPLY_REPLACED:
-        return msg
-    try:
-        old_msg = deserialize_message(
-            msg,
-            get_message(type_map[topic_name]),
-        )
-    except Exception as e:
-        print(f"Failed to deserialize message for topic {topic_name} [{type_map[topic_name]}] : {e}")
+    if old_type not in TYPES_NOT_SIMPLY_REPLACED and old_type not in TYPES_NEED_TO_UPDATE_VERSION:
         return msg
 
+    old_msg, old_type = deserialize_message_recursive(msg, old_type)
+
+    if old_type == "autoware_perception_msgs_v1_7/msg/TrafficLightGroupArray":
+        return convert_traffic_light_group_array_v1_7(old_msg)
     if old_type == "autoware_auto_control_msgs/msg/AckermannControlCommand":
         return convert_ackermann_control_command(old_msg)
     if old_type == "autoware_auto_planning_msgs/msg/PathWithLaneId":
@@ -184,7 +222,9 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
         return convert_auto_traffic_signal_array(old_msg)
     if old_type == "autoware_perception_msgs/msg/TrafficSignalArray":
         return convert_traffic_signal_array(old_msg)
-    return None
+
+    return msg
+
 
 def convert_metadata(input_metadata_path: str, output_metadata_path: str) -> None:
     with input_metadata_path.open() as f:
@@ -206,6 +246,7 @@ def convert_metadata(input_metadata_path: str, output_metadata_path: str) -> Non
 
     with output_metadata_path.open("w") as f:
         yaml.dump(output_metadata, f, default_flow_style=False)
+
 
 def convert_bag(input_bag_path: str, output_bag_path: str) -> None:
     p_input = Path(input_bag_path)
@@ -231,6 +272,8 @@ def convert_bag(input_bag_path: str, output_bag_path: str) -> None:
     while reader.has_next():
         topic_name, msg, stamp = reader.read_next()
         new_msg = convert_msg(topic_name, msg, type_map)
+        if new_msg is None:
+            import pdb; pdb.set_trace()  # noqa: E702
         writer.write(topic_name, new_msg, stamp)
 
     # reindex to update metadata.yaml

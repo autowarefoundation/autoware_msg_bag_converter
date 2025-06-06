@@ -124,8 +124,7 @@ def convert_path_with_lane_id(old_msg: AutoPathWithLaneId) -> bytes:
             heading_rate_rps=old_point.point.heading_rate_rps,
             is_final=old_point.point.is_final,
         )
-        points.append(PathPointWithLaneId(
-            point=point, lane_ids=old_point.lane_ids))
+        points.append(PathPointWithLaneId(point=point, lane_ids=old_point.lane_ids))
     return serialize_message(
         T4PathWithLaneId(
             header=old_msg.header,
@@ -140,8 +139,7 @@ def convert_auto_traffic_signal_array(old_msg: AutoTrafficSignalArray) -> bytes:
     new_msg = TrafficLightGroupArray(stamp=old_msg.header.stamp)
     for old_signal in old_msg.signals:
         old_signal: AutoTrafficSignal
-        traffic_light_group = TrafficLightGroup(
-            traffic_light_group_id=old_signal.map_primitive_id)
+        traffic_light_group = TrafficLightGroup(traffic_light_group_id=old_signal.map_primitive_id)
         for old_light in old_signal.lights:
             old_light: AutoTrafficLight
             traffic_light_element = TrafficLightElement(
@@ -159,8 +157,7 @@ def convert_traffic_signal_array(old_msg: TrafficSignalArray) -> bytes:
     new_msg = TrafficLightGroupArray(stamp=old_msg.stamp)
     for old_signal in old_msg.signals:
         old_signal: TrafficSignal
-        traffic_light_group = TrafficLightGroup(
-            traffic_light_group_id=old_signal.traffic_signal_id)
+        traffic_light_group = TrafficLightGroup(traffic_light_group_id=old_signal.traffic_signal_id)
         for old_element in old_signal.elements:
             old_element: TrafficSignalElement
             traffic_light_element = TrafficLightElement(
@@ -172,6 +169,7 @@ def convert_traffic_signal_array(old_msg: TrafficSignalArray) -> bytes:
             traffic_light_group.elements.append(traffic_light_element)
         new_msg.traffic_light_groups.append(traffic_light_group)
     return serialize_message(new_msg)
+
 
 def convert_traffic_light_group_array_v1_7(old_msg: TrafficLightGroupArrayV1_7) -> bytes:
     new_msg = TrafficLightGroupArray(stamp=old_msg.stamp)
@@ -199,7 +197,7 @@ def deserialize_message_recursive(msg: bytes, type_name: str) -> tuple[Any, str]
             original_type_name = TYPES_NEED_TO_UPDATE_VERSION[type_name]
             return deserialize_message_recursive(msg, original_type_name)
         print(f"Failed to deserialize message of type {type_name}: {e}")
-        return msg, 'unknown_type'
+        return msg, "unknown_type"
 
 
 def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:

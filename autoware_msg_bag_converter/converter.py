@@ -196,11 +196,11 @@ def deserialize_message_recursive(msg: bytes, type_name: str) -> tuple[Any, str]
         if type_name in TYPES_NEED_TO_UPDATE_VERSION:
             original_type_name = TYPES_NEED_TO_UPDATE_VERSION[type_name]
             return deserialize_message_recursive(msg, original_type_name)
-        print(f"Failed to deserialize message of type {type_name}: {e}")
+        print(f"Failed to deserialize message of type {type_name}: {e}") # noqa
         return msg, "unknown_type"
 
 
-def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:
+def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:  # noqa
     # get old msg type
     old_type: str = type_map[topic_name]
     if old_type not in TYPES_NOT_SIMPLY_REPLACED and old_type not in TYPES_NEED_TO_UPDATE_VERSION:

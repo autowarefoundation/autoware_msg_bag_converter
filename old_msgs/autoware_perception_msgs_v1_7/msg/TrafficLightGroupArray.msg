@@ -1,0 +1,2 @@
+builtin_interfaces/Time stamp
+autoware_perception_msgs_v1_7/TrafficLightGroup[] traffic_light_groups

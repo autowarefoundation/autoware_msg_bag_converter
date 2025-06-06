@@ -192,11 +192,11 @@ def convert_traffic_light_group_array_v1_7(old_msg: TrafficLightGroupArrayV1_7) 
 def deserialize_message_recursive(msg: bytes, type_name: str) -> tuple[Any, str]:
     try:
         return deserialize_message(msg, get_message(type_name)), type_name
-    except Exception as e:
+    except Exception as e: # noqa
         if type_name in TYPES_NEED_TO_UPDATE_VERSION:
             original_type_name = TYPES_NEED_TO_UPDATE_VERSION[type_name]
             return deserialize_message_recursive(msg, original_type_name)
-        print(f"Failed to deserialize message of type {type_name}: {e}") # noqa
+        print(f"Failed to deserialize message of type {type_name}: {e}")  # noqa
         return msg, "unknown_type"
 
 

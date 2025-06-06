@@ -7,7 +7,7 @@ This package converts bag containing type autoware_auto_msg to autoware_msg.
 1. create ros2 workspace for converter (ex. $HOME/ros_ws/converter)
 2. clone this repository into converter workspace
 3. clone dependency repos
-4. copy old msg package to src directory
+4. copy old msg packages to src directory
 5. build converter workspace
 
 Example command is below.
@@ -17,7 +17,7 @@ mkdir -p $HOME/ros_ws/converter/src
 cd $HOME/ros_ws/converter/src
 git clone https://github.com/autowarefoundation/autoware_msg_bag_converter.git
 cd autoware_msg_bag_converter
-cp -r old_msg ..
+cp -r old_msgs ..
 vcs import .. < dependency.repos
 cd $HOME/ros_ws/converter
 rosdep update

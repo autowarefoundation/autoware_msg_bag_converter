@@ -220,7 +220,7 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:  # noqa
         return convert_traffic_signal_array(old_msg)
     if old_type == "unknown_type":
         return msg
-    return serialize_message(msg)
+    return serialize_message(old_msg)
 
 
 def convert_metadata(input_metadata_path: str, output_metadata_path: str) -> None:

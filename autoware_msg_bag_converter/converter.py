@@ -45,6 +45,8 @@ from autoware_msg_bag_converter.bag import create_reader
 from autoware_msg_bag_converter.bag import create_writer
 from autoware_msg_bag_converter.bag import get_storage_options
 
+from autoware_msg_bag_converter.convert_pointcloud_types import convert_pointcloud2
+
 if TYPE_CHECKING:
     from autoware_auto_perception_msgs.msg import TrafficLight as AutoTrafficLight
     from autoware_auto_perception_msgs.msg import TrafficSignal as AutoTrafficSignal
@@ -218,6 +220,8 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:  # noqa
         return convert_auto_traffic_signal_array(old_msg)
     if old_type == "autoware_perception_msgs/msg/TrafficSignalArray":
         return convert_traffic_signal_array(old_msg)
+    if old_type == "sensor_msgs/msg/PointCloud2":
+        return convert_pointcloud2(old_msg)
     if old_type == "unknown_type":
         return msg
     return serialize_message(old_msg)

@@ -44,6 +44,7 @@ import yaml
 from autoware_msg_bag_converter.bag import create_reader
 from autoware_msg_bag_converter.bag import create_writer
 from autoware_msg_bag_converter.bag import get_storage_options
+from autoware_msg_bag_converter.convert_pointcloud_types import convert_pointcloud2
 
 if TYPE_CHECKING:
     from autoware_auto_perception_msgs.msg import TrafficLight as AutoTrafficLight
@@ -60,6 +61,9 @@ TYPES_NOT_SIMPLY_REPLACED = {
 TYPES_NEED_TO_UPDATE_VERSION = {
     "autoware_perception_msgs/msg/TrafficLightGroupArray": "autoware_perception_msgs_v1_7/msg/TrafficLightGroupArray",
 }
+TYPES_TO_UPDATE_DATA = [
+    "sensor_msgs/msg/PointCloud2",
+]
 
 # Define the type of message you want autoware prefixes to be attached to (forward matching)
 TYPES_TO_ADD_AUTOWARE_PREFIX = [
@@ -171,7 +175,9 @@ def convert_traffic_signal_array(old_msg: TrafficSignalArray) -> bytes:
     return serialize_message(new_msg)
 
 
-def convert_traffic_light_group_array_v1_7(old_msg: TrafficLightGroupArrayV1_7) -> bytes:
+def convert_traffic_light_group_array_v1_7(
+    old_msg: TrafficLightGroupArrayV1_7,
+) -> bytes:
     new_msg = TrafficLightGroupArray(stamp=old_msg.stamp)
     for old_group in old_msg.traffic_light_groups:
         new_group = TrafficLightGroup(
@@ -192,7 +198,7 @@ def convert_traffic_light_group_array_v1_7(old_msg: TrafficLightGroupArrayV1_7) 
 def deserialize_message_recursive(msg: bytes, type_name: str) -> tuple[Any, str]:
     try:
         return deserialize_message(msg, get_message(type_name)), type_name
-    except Exception as e: # noqa
+    except Exception as e:  # noqa
         if type_name in TYPES_NEED_TO_UPDATE_VERSION:
             original_type_name = TYPES_NEED_TO_UPDATE_VERSION[type_name]
             return deserialize_message_recursive(msg, original_type_name)
@@ -203,7 +209,11 @@ def deserialize_message_recursive(msg: bytes, type_name: str) -> tuple[Any, str]
 def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:  # noqa
     # get old msg type
     old_type: str = type_map[topic_name]
-    if old_type not in TYPES_NOT_SIMPLY_REPLACED and old_type not in TYPES_NEED_TO_UPDATE_VERSION:
+    if (
+        old_type not in TYPES_NOT_SIMPLY_REPLACED
+        and old_type not in TYPES_NEED_TO_UPDATE_VERSION
+        and old_type not in TYPES_TO_UPDATE_DATA
+    ):
         return msg
 
     old_msg, old_type = deserialize_message_recursive(msg, old_type)
@@ -218,6 +228,8 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:  # noqa
         return convert_auto_traffic_signal_array(old_msg)
     if old_type == "autoware_perception_msgs/msg/TrafficSignalArray":
         return convert_traffic_signal_array(old_msg)
+    if old_type == "sensor_msgs/msg/PointCloud2":
+        return convert_pointcloud2(old_msg)
     if old_type == "unknown_type":
         return msg
     return serialize_message(old_msg)

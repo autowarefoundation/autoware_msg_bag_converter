@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 
 from autoware_auto_control_msgs.msg import AckermannControlCommand
 from autoware_auto_perception_msgs.msg import TrafficSignalArray as AutoTrafficSignalArray
+from autoware_auto_planning_msgs.msg import HADMapRoute
 from autoware_auto_planning_msgs.msg import PathWithLaneId as AutoPathWithLaneId
 from autoware_control_msgs.msg import Control
 from autoware_control_msgs.msg import Lateral
@@ -31,6 +32,9 @@ from autoware_perception_msgs.msg import TrafficLightGroup
 from autoware_perception_msgs.msg import TrafficLightGroupArray
 from autoware_perception_msgs.msg import TrafficSignalArray
 from autoware_perception_msgs_v1_7.msg import TrafficLightGroupArray as TrafficLightGroupArrayV1_7
+from autoware_planning_msgs.msg import LaneletPrimitive
+from autoware_planning_msgs.msg import LaneletRoute
+from autoware_planning_msgs.msg import LaneletSegment
 from autoware_planning_msgs.msg import PathPoint
 from rclpy.serialization import deserialize_message
 from rclpy.serialization import serialize_message
@@ -55,10 +59,11 @@ if TYPE_CHECKING:
 TYPES_NOT_SIMPLY_REPLACED = {
     "autoware_auto_control_msgs/msg/AckermannControlCommand": "autoware_control_msgs/msg/Control",
     "autoware_auto_planning_msgs/msg/PathWithLaneId": "tier4_planning_msgs/msg/PathWithLaneId",
+    "autoware_auto_planning_msgs/msg/HADMapRoute": "autoware_planning_msgs/msg/LaneletRoute",
     "autoware_auto_perception_msgs/msg/TrafficSignalArray": "autoware_perception_msgs/msg/TrafficLightGroupArray",
     "autoware_perception_msgs/msg/TrafficSignalArray": "autoware_perception_msgs/msg/TrafficLightGroupArray",
 }
-TYPES_NEED_TO_UPDATE_VERSION = {
+TYPES_TO_UPDATE_VERSION = {  # key: type_name, value: type_name of original version
     "autoware_perception_msgs/msg/TrafficLightGroupArray": "autoware_perception_msgs_v1_7/msg/TrafficLightGroupArray",
 }
 TYPES_TO_UPDATE_DATA = [
@@ -79,18 +84,21 @@ def change_topic_type(old_type: TopicMetadata) -> TopicMetadata:
             name=old_type.name,
             type=TYPES_NOT_SIMPLY_REPLACED[old_type.type],
             serialization_format="cdr",
+            offered_qos_profiles=old_type.offered_qos_profiles,
         )
     if any(old_type.type.startswith(prefix) for prefix in TYPES_TO_ADD_AUTOWARE_PREFIX):
         return TopicMetadata(
             name=old_type.name,
             type=f"autoware_{old_type.type}",
             serialization_format="cdr",
+            offered_qos_profiles=old_type.offered_qos_profiles,
         )
     # If old_type is not in the conversion rules, simply remove "auto_" and use that as the new type.
     return TopicMetadata(
         name=old_type.name,
         type=old_type.type.replace("autoware_auto_", "autoware_"),
         serialization_format="cdr",
+        offered_qos_profiles=old_type.offered_qos_profiles,
     )
 
 
@@ -195,12 +203,32 @@ def convert_traffic_light_group_array_v1_7(
     return serialize_message(new_msg)
 
 
+def convert_hadmap_route(old_msg: HADMapRoute) -> bytes:
+    new_msg = LaneletRoute(
+        header=old_msg.header,
+        start_pose=old_msg.start_pose,
+        goal_pose=old_msg.goal_pose,
+        allow_modification=False,
+    )
+    for old_segment in old_msg.segments:
+        new_segment = LaneletSegment(
+            preferred_primitive=LaneletPrimitive(
+                id=old_segment.preferred_primitive_id, primitive_type="lane"
+            )
+        )
+        for old_primitive in old_segment.primitives:
+            new_primitive = LaneletPrimitive(id=old_primitive.id, primitive_type="lane")
+            new_segment.primitives.append(new_primitive)
+        new_msg.segments.append(new_segment)
+    return serialize_message(new_msg)
+
+
 def deserialize_message_recursive(msg: bytes, type_name: str) -> tuple[Any, str]:
     try:
         return deserialize_message(msg, get_message(type_name)), type_name
     except Exception as e:  # noqa
-        if type_name in TYPES_NEED_TO_UPDATE_VERSION:
-            original_type_name = TYPES_NEED_TO_UPDATE_VERSION[type_name]
+        if type_name in TYPES_TO_UPDATE_VERSION:
+            original_type_name = TYPES_TO_UPDATE_VERSION[type_name]
             return deserialize_message_recursive(msg, original_type_name)
         print(f"Failed to deserialize message of type {type_name}: {e}")  # noqa
         return msg, "unknown_type"
@@ -211,7 +239,7 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:  # noqa
     old_type: str = type_map[topic_name]
     if (
         old_type not in TYPES_NOT_SIMPLY_REPLACED
-        and old_type not in TYPES_NEED_TO_UPDATE_VERSION
+        and old_type not in TYPES_TO_UPDATE_VERSION
         and old_type not in TYPES_TO_UPDATE_DATA
     ):
         return msg
@@ -224,6 +252,8 @@ def convert_msg(topic_name: str, msg: bytes, type_map: dict) -> bytes:  # noqa
         return convert_ackermann_control_command(old_msg)
     if old_type == "autoware_auto_planning_msgs/msg/PathWithLaneId":
         return convert_path_with_lane_id(old_msg)
+    if old_type == "autoware_auto_planning_msgs/msg/HADMapRoute":
+        return convert_hadmap_route(old_msg)
     if old_type == "autoware_auto_perception_msgs/msg/TrafficSignalArray":
         return convert_auto_traffic_signal_array(old_msg)
     if old_type == "autoware_perception_msgs/msg/TrafficSignalArray":

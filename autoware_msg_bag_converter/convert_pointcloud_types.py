@@ -1,20 +1,22 @@
 """
-This script is copied and modified from: 
+This script is copied and modified from:
 https://github.com/Shin-kyoto/tier4_perception_dataset_tools/tree/main
 """
 
+import argparse
 import os
 from pathlib import Path
-import sys
-import argparse
-
-from rclpy.serialization import deserialize_message, serialize_message
-from rosidl_runtime_py.utilities import get_message
-from sensor_msgs.msg import PointCloud2, PointField
-import rosbag2_py  # noqa
-import numpy as np
-import ros2_numpy
 import shutil
+import sys
+
+import numpy as np
+from rclpy.serialization import deserialize_message
+from rclpy.serialization import serialize_message
+import ros2_numpy
+import rosbag2_py  # noqa
+from rosidl_runtime_py.utilities import get_message
+from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import PointField
 
 # import debugpy
 # debugpy.listen(5678)
@@ -26,7 +28,6 @@ if os.environ.get("ROSBAG2_PY_TEST_WITH_RTLD_GLOBAL", None) is not None:
     #
     # For the fun RTTI ABI details, see https://whatofhow.wordpress.com/2015/03/17/odr-rtti-dso/.
     sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)
-
 
 
 def is_xyz_layout(msg: PointCloud2):

@@ -77,27 +77,28 @@ TYPES_TO_ADD_AUTOWARE_PREFIX = [
     "vehicle_cmd_gate/msg",
 ]
 
+TOPIC_NAME_REMAPPING = {
+    "/planning/scenario_planning/trajectory": "/planning/trajectory",
+}
+
 
 def change_topic_type(old_type: TopicMetadata) -> TopicMetadata:
+    serialization_format = "cdr"
+
+    new_topic_name = TOPIC_NAME_REMAPPING.get(old_type.name, old_type.name)
+
     if old_type.type in TYPES_NOT_SIMPLY_REPLACED:
-        return TopicMetadata(
-            name=old_type.name,
-            type=TYPES_NOT_SIMPLY_REPLACED[old_type.type],
-            serialization_format="cdr",
-            offered_qos_profiles=old_type.offered_qos_profiles,
-        )
-    if any(old_type.type.startswith(prefix) for prefix in TYPES_TO_ADD_AUTOWARE_PREFIX):
-        return TopicMetadata(
-            name=old_type.name,
-            type=f"autoware_{old_type.type}",
-            serialization_format="cdr",
-            offered_qos_profiles=old_type.offered_qos_profiles,
-        )
-    # If old_type is not in the conversion rules, simply remove "auto_" and use that as the new type.
+        new_topic_type = TYPES_NOT_SIMPLY_REPLACED[old_type.type]
+    elif any(old_type.type.startswith(prefix) for prefix in TYPES_TO_ADD_AUTOWARE_PREFIX):
+        new_topic_type = f"autoware_{old_type.type}"
+    else:
+        # If old_type is not in the conversion rules, simply remove "auto_" and use that as the new type.
+        new_topic_type = old_type.type.replace("autoware_auto_", "autoware_")
+
     return TopicMetadata(
-        name=old_type.name,
-        type=old_type.type.replace("autoware_auto_", "autoware_"),
-        serialization_format="cdr",
+        name=new_topic_name,
+        type=new_topic_type,
+        serialization_format=serialization_format,
         offered_qos_profiles=old_type.offered_qos_profiles,
     )
 
@@ -299,9 +300,9 @@ def convert_bag(input_bag_path: str, output_bag_path: str) -> None:
     writer = create_writer(output_bag_path, storage_type)
 
     # create topic
-    type_map = {}  # key: topic_name value: old_type's msg type
+    old_type_map = {}  # key: topic_name value: old_type's msg type
     for topic_type in reader.get_all_topics_and_types():
-        type_map[topic_type.name] = topic_type.type
+        old_type_map[topic_type.name] = topic_type.type
         new_topic_type = change_topic_type(
             topic_type,
         )
@@ -310,8 +311,9 @@ def convert_bag(input_bag_path: str, output_bag_path: str) -> None:
     # copy data from input bag to output bag
     while reader.has_next():
         topic_name, msg, stamp = reader.read_next()
-        new_msg = convert_msg(topic_name, msg, type_map)
-        writer.write(topic_name, new_msg, stamp)
+        new_msg = convert_msg(topic_name, msg, old_type_map)
+        new_topic_name = TOPIC_NAME_REMAPPING.get(topic_name, topic_name)
+        writer.write(new_topic_name, new_msg, stamp)
 
     # reindex to update metadata.yaml
     del writer

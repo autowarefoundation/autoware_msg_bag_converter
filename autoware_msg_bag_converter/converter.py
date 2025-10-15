@@ -57,27 +57,44 @@ if TYPE_CHECKING:
     from autoware_perception_msgs.msg import TrafficSignalElement
 
 TYPES_NOT_SIMPLY_REPLACED = {
+    # 2024/08 add autoware_ prefix and remove auto_ prefix
     "autoware_auto_control_msgs/msg/AckermannControlCommand": "autoware_control_msgs/msg/Control",
     "autoware_auto_planning_msgs/msg/PathWithLaneId": "tier4_planning_msgs/msg/PathWithLaneId",
     "autoware_auto_planning_msgs/msg/HADMapRoute": "autoware_planning_msgs/msg/LaneletRoute",
     "autoware_auto_perception_msgs/msg/TrafficSignalArray": "autoware_perception_msgs/msg/TrafficLightGroupArray",
     "autoware_perception_msgs/msg/TrafficSignalArray": "autoware_perception_msgs/msg/TrafficLightGroupArray",
 }
-TYPES_TO_UPDATE_VERSION = {  # key: type_name, value: type_name of original version
-    "autoware_perception_msgs/msg/TrafficLightGroupArray": "autoware_perception_msgs_v1_7/msg/TrafficLightGroupArray",
-}
-TYPES_TO_UPDATE_DATA = [
-    "sensor_msgs/msg/PointCloud2",
-]
 
-# Define the type of message you want autoware prefixes to be attached to (forward matching)
 TYPES_TO_ADD_AUTOWARE_PREFIX = [
+    # 2024/08 add autoware_ prefix and remove auto_ prefix
     "control_validator/msg",
     "planning_validator/msg",
     "vehicle_cmd_gate/msg",
 ]
 
+TYPE_NAME_REMAPPING = {
+    # 2025/02 https://github.com/autowarefoundation/autoware_universe/pull/10180
+    "tier4_planning_msgs/msg/Scenario": "autoware_internal_planning_msgs/msg/Scenario",
+    # 2025/02 https://github.com/autowarefoundation/autoware_universe/pull/10023
+    "tier4_planning_msgs/msg/PathWithLaneId": "autoware_internal_planning_msgs/msg/PathWithLaneId",
+    # 2025/03 https://github.com/autowarefoundation/autoware_internal_msgs/pull/55
+    "tier4_planning_msgs/msg/RouteState": "autoware_internal_planning_msgs/msg/RouteState",
+    # 2025/05 https://github.com/autowarefoundation/autoware_universe/pull/10273
+    "tier4_planning_msgs/msg/VelocityLimit": "autoware_internal_planning_msgs/msg/VelocityLimit",
+    "tier4_planning_msgs/msg/ClearVelocityLimit": "autoware_internal_planning_msgs/msg/ClearVelocityLimit",
+}
+
+TYPES_TO_UPDATE_VERSION = {
+    # 2025/5
+    "autoware_perception_msgs/msg/TrafficLightGroupArray": "autoware_perception_msgs_v1_7/msg/TrafficLightGroupArray",
+}
+TYPES_TO_UPDATE_DATA = [
+    # 2025/7
+    "sensor_msgs/msg/PointCloud2",
+]
+
 TOPIC_NAME_REMAPPING = {
+    # 2025/08
     "/planning/scenario_planning/trajectory": "/planning/trajectory",
 }
 
@@ -85,15 +102,18 @@ TOPIC_NAME_REMAPPING = {
 def change_topic_type(old_type: TopicMetadata) -> TopicMetadata:
     serialization_format = "cdr"
 
-    new_topic_name = TOPIC_NAME_REMAPPING.get(old_type.name, old_type.name)
-
     if old_type.type in TYPES_NOT_SIMPLY_REPLACED:
         new_topic_type = TYPES_NOT_SIMPLY_REPLACED[old_type.type]
-    elif any(old_type.type.startswith(prefix) for prefix in TYPES_TO_ADD_AUTOWARE_PREFIX):
-        new_topic_type = f"autoware_{old_type.type}"
     else:
         # If old_type is not in the conversion rules, simply remove "auto_" and use that as the new type.
         new_topic_type = old_type.type.replace("autoware_auto_", "autoware_")
+    if any(old_type.type.startswith(prefix) for prefix in TYPES_TO_ADD_AUTOWARE_PREFIX):
+        new_topic_type = f"autoware_{old_type.type}"
+
+    if old_type.type in TYPE_NAME_REMAPPING:
+        new_topic_type = TYPE_NAME_REMAPPING[old_type.type]
+
+    new_topic_name = TOPIC_NAME_REMAPPING.get(old_type.name, old_type.name)
 
     return TopicMetadata(
         name=new_topic_name,

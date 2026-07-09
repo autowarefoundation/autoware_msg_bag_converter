@@ -1,22 +1,35 @@
-"""
-This script is copied and modified from:
+# Copyright (c) 2024 TIER IV.inc
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""2025/07: PointCloud2 field layout upgrade.
+
+Copied and modified from:
 https://github.com/Shin-kyoto/tier4_perception_dataset_tools/tree/main
 """
 
-import argparse
 import os
-from pathlib import Path
-import shutil
 import sys
 
 import numpy as np
-from rclpy.serialization import deserialize_message
 from rclpy.serialization import serialize_message
 import ros2_numpy
-import rosbag2_py  # noqa
-from rosidl_runtime_py.utilities import get_message
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import PointField
+
+TYPES_TO_UPDATE_DATA = [
+    "sensor_msgs/msg/PointCloud2",
+]
 
 # import debugpy
 # debugpy.listen(5678)

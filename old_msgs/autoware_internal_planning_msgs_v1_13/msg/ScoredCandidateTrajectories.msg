@@ -1,0 +1,2 @@
+autoware_internal_planning_msgs_v1_13/ScoredCandidateTrajectory[] scored_candidate_trajectories
+autoware_internal_planning_msgs_v1_13/GeneratorInfo[] generator_info

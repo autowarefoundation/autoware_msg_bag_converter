@@ -16,6 +16,7 @@
   <depend>autoware_auto_vehicle_msgs</depend>
   <depend>autoware_vehicle_msgs</depend>
 
+  <exec_depend>autoware_internal_planning_msgs_v1_13</exec_depend>
   <exec_depend>autoware_perception_msgs_v1_7</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>ros2_numpy</exec_depend>

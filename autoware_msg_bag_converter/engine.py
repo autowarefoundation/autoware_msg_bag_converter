@@ -113,6 +113,7 @@ def convert_bag(input_bag_path: str, output_bag_path: str) -> None:
         new_topic_name = TOPIC_NAME_REMAPPING.get(topic_name, topic_name)
         writer.write(new_topic_name, new_msg, stamp)
 
+    del reader
     del writer
     Reindexer().reindex(get_storage_options(output_bag_path, storage_type))
 

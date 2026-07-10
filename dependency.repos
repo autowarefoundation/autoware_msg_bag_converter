@@ -8,6 +8,11 @@ repositories:
     type: git
     url: https://github.com/autowarefoundation/autoware_common.git
     version: main
+  # Contains CandidateTrajectory.turn_indicators_command (#89); pin until a release after 1.13.0.
+  core/autoware_internal_msgs:
+    type: git
+    url: https://github.com/autowarefoundation/autoware_internal_msgs.git
+    version: main
   core/external/autoware_auto_msgs:
     type: git
     url: https://github.com/tier4/autoware_auto_msgs.git

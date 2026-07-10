@@ -80,12 +80,15 @@ def preload_turn_indicators_timeline(
     """Load turn-indicator status timeline for cross-topic merge."""
     timeline: list[tuple[int, TurnIndicatorsReport]] = []
     reader = create_reader(input_bag_path, storage_type)
-    while reader.has_next():
-        topic_name, msg, stamp = reader.read_next()
-        if topic_name != TURN_INDICATORS_STATUS_TOPIC:
-            continue
-        report = deserialize_message(msg, TurnIndicatorsReport)
-        timeline.append((stamp, report))
+    try:
+        while reader.has_next():
+            topic_name, msg, stamp = reader.read_next()
+            if topic_name != TURN_INDICATORS_STATUS_TOPIC:
+                continue
+            report = deserialize_message(msg, TurnIndicatorsReport)
+            timeline.append((stamp, report))
+    finally:
+        del reader
     timeline.sort(key=lambda item: item[0])
     return {"turn_indicators_timeline": timeline}
 
